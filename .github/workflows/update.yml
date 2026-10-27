@@ -1,0 +1,52 @@
+# Keeps Casks/espresso-search.rb on the version espressoformac.com offers: every hour, and right
+# after a release (scripts/release-local.sh in the app repo runs this workflow). It reads
+# /api/latest (the newest stable item of the Sparkle appcast), downloads that DMG, and commits the
+# new version and checksum. Betas never reach Homebrew.
+name: Update espresso-search
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: update
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump the cask to the website's version
+        run: |
+          set -euo pipefail
+          cask=Casks/espresso-search.rb
+          latest=$(curl -fsS https://espressoformac.com/api/latest)
+          if [ "$(jq -r .available <<<"$latest")" != true ]; then
+            echo "::warning::The website offers no release right now: cask left as it is."
+            exit 0
+          fi
+          version=$(jq -r .version <<<"$latest")
+          url=$(jq -r .dmgUrl <<<"$latest")
+          [[ "$version" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "::error::Unexpected version: $version"; exit 1; }
+          [ "$url" = "https://updates.espressoformac.com/Espresso-$version.dmg" ] \
+            || { echo "::error::Unexpected DMG URL: $url"; exit 1; }
+
+          current=$(sed -nE 's/^  version "(.*)"$/\1/p' "$cask")
+          if [ "$version" = "$current" ]; then
+            echo "Up to date: $current"
+            exit 0
+          fi
+
+          curl -fsSL "$url" -o Espresso.dmg
+          sha=$(sha256sum Espresso.dmg | cut -d' ' -f1)
+          rm Espresso.dmg
+          sed -i -E "s/^  version \".*\"$/  version \"$version\"/; s/^  sha256 \".*\"$/  sha256 \"$sha\"/" "$cask"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "espresso-search $version"
+          git push -q
+          echo "espresso-search $current → $version"
