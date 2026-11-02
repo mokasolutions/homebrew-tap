@@ -1,6 +1,6 @@
 cask "espresso-search" do
-  version "0.2.0"
-  sha256 "6032af0f19b8f3b1e1a79437f7e9b0c5aa440e2c1ba139889c3594a9f49c8562"
+  version "0.2.1"
+  sha256 "e78ef0128e89d582ee61af466e204bafa445d4aa89e9ab7f5c1c7447350116a0"
 
   url "https://updates.espressoformac.com/Espresso-#{version}.dmg"
   name "Espresso"
